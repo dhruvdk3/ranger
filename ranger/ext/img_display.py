@@ -16,6 +16,7 @@ import curses
 import errno
 import fcntl
 import os
+import select
 import struct
 import sys
 import warnings
@@ -857,9 +858,19 @@ class KittyImageDisplayer(ImageDisplayer, FileManagerAware):
         with temporarily_moved_cursor(int(start_y), int(start_x)):
             for cmd_str in self._format_cmd_str(cmds, payload=payload):
                 self.stdbout.write(cmd_str)
+        sys.stdout.flush()
         # catch kitty answer before the escape codes corrupt the console
         resp = b''
+        timeout = 0.5  # 500ms timeout
+        stdin_fd = self.stdbin.fileno()
         while resp[-2:] != self.protocol_end:
+            ready, _, _ = select.select([stdin_fd], [], [], timeout)
+            if not ready:
+                import termios
+                termios.tcflush(stdin_fd, termios.TCIFLUSH)
+                raise ImageDisplayError(
+                    'timeout waiting for kitty graphics protocol response; '
+                    'stdin may be corrupted by terminal escape sequences')
             resp += self.stdbin.read(1)
         if b'OK' in resp:
             return
