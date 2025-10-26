@@ -986,11 +986,13 @@ class Actions(  # pylint: disable=too-many-instance-attributes,too-many-public-m
             manualpath = self.relpath('../doc/ranger.1')
             if os.path.exists(manualpath):
                 process = self.run(['man', manualpath])
-                if process.poll() != 16:
+                if process and process.poll() != 16:
                     return
             process = self.run(['man', 'ranger'])
-            if process.poll() == 16:
+            if process and process.poll() == 16:
                 self.notify("Could not find manpage.", bad=True)
+            elif not process:
+                self.notify("Failed to run man command.", bad=True)
         else:
             self.notify("Failed to show man page, check if man is installed",
                         bad=True)
